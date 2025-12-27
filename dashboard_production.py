@@ -48,12 +48,15 @@ def authenticate_google_sheets():
             st.warning(f"⚠️ Không thể đọc từ Streamlit Secrets: {e}")
         
         # Fallback: Try LOCAL JSON file (for local development)
-        if os.path.exists(CONFIG['google_credentials']):
-            creds = Credentials.from_service_account_file(
-                CONFIG['google_credentials'],
-                scopes=scopes
-            )
-            return gspread.authorize(creds)
+        try:
+            if os.path.exists(CONFIG['google_credentials']):
+                creds = Credentials.from_service_account_file(
+                    CONFIG['google_credentials'],
+                    scopes=scopes
+                )
+                return gspread.authorize(creds)
+        except Exception:
+            pass  # Ignore file not found on cloud
         
         st.error("❌ Không tìm thấy credentials. Vui lòng cấu hình Secrets trên Streamlit Cloud.")
         return None
