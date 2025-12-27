@@ -38,3 +38,17 @@ Thumbs.db
 
 # Local sync directory
 excel_sync/
+
+# Local utility scripts (not needed on cloud)
+app.py
+dashboard_capacity.py
+khsx_excel_reader.py
+khsx_sheets_updater.py
+khsx_sync_config.py
+khsx_sync_manager.py
+upload_khsx_with_progress.py
+run_khsx_sync.bat
+setup_auto_sync.ps1
+show_service_account_email.py
+generate_streamlit_secrets.py
+FILES_TO_REMOVE.md
