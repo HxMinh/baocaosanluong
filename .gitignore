@@ -10,6 +10,7 @@ venv/
 
 # Streamlit config (optional to ignore, but usually safe)
 .streamlit/secrets.toml
+streamlit_secrets.toml
 
 # Logs
 *.log

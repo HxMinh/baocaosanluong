@@ -50,23 +50,31 @@ if __name__ == "__main__":
     
     json_file = json_files[0]
     print(f"[INFO] Dang doc file: {json_file}")
-    print("=" * 80)
     
     secrets_content = generate_streamlit_secrets(json_file)
     
     if secrets_content:
-        print("\n[SUCCESS] Noi dung Streamlit Secrets (copy toan bo phan duoi day):")
+        # Luu vao file de tranh loi encoding
+        output_file = "streamlit_secrets.toml"
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(secrets_content)
+        
+        print(f"[SUCCESS] Da tao file: {output_file}")
+        print("")
         print("=" * 80)
-        print(secrets_content)
+        print("[HUONG DAN]:")
         print("=" * 80)
-        print("\n[HUONG DAN]:")
-        print("1. Copy toan bo noi dung tu [gcp_service_account] den het")
-        print("2. Vao Streamlit Cloud -> App Settings -> Secrets")
-        print("3. Paste noi dung vao va Save")
-        print("\n[LUU Y]:")
+        print(f"1. Mo file '{output_file}' bang Notepad hoac VS Code")
+        print("2. Copy TOAN BO noi dung trong file")
+        print("3. Vao Streamlit Cloud -> App Settings -> Secrets")
+        print("4. Paste noi dung vao va Save")
+        print("")
+        print("[LUU Y QUAN TRONG]:")
+        print("- Copy TOAN BO noi dung tu [gcp_service_account] den het")
         print("- Dam bao private_key duoc boc trong \"\"\"...\"\"\"")
-        print("- Khong them hoac xoa bat ky ky tu nao")
+        print("- KHONG them hoac xoa bat ky ky tu nao")
         print("- Giu nguyen format cua private key")
+        print("=" * 80)
     else:
         sys.exit(1)
 
