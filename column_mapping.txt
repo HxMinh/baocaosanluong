@@ -1,0 +1,64 @@
+Total columns: 63
+
+Column mapping (first 50 columns):
+================================================================================
+A   (col  1): Orkd cũ
+B   (col  2): Or KD text
+C   (col  3): Ngày đặt PO
+D   (col  4): PO khách hàng
+E   (col  5): ORKD
+F   (col  6): Order 
+F2
+G   (col  7): Order  VL
+H   (col  8): Tên chi tiết
+I   (col  9): File GC
+J   (col 10): Ghi chú PKY
+K   (col 11): Số lượng ĐH
+L   (col 12): KH
+M   (col 13): Thời hạn cũ
+khách hàng
+N   (col 14): TH mới khách hàng
+O   (col 15): TH AMJ xác nhận đảm bảo
+P   (col 16): Ngày nhận phôi KH
+Q   (col 17): Ngày giao phôi sx AMJ
+R   (col 18): CHECK THỜI HẠN
+S   (col 19): 
+T   (col 20): Ghi chú
+U   (col 21): Ghi chú 1
+V   (col 22): Ngày xuất hàng thực tế-link
+W   (col 23): Ngày xuất hàng
+X   (col 24): Ghi chú 2
+Y   (col 25): Ghi chú 3
+Z   (col 26): kết hợp
+AA  (col 27): XN file PKY
+AB  (col 28): 
+AC  (col 29): 
+AD  (col 30): 
+AE  (col 31): 
+AF  (col 32): 
+AG  (col 33): 
+AH  (col 34): 
+AI  (col 35): GC lần đầu tại AMJ
+AJ  (col 36): GC lần đầu tại PD+AMJ
+AK  (col 37): Thông tin bản vẽ mới
+AL  (col 38): Ngày bắt đầu GC
+AM  (col 39): Ngày bắt đầu GC APP
+AN  (col 40): Ngày Triển khai cuối APP
+AO  (col 41): Ngày giao QLCL
+AP  (col 42): KS GCKT APP
+AQ  (col 43): KS Tình trạng PKT APP
+AR  (col 44): AMJ XN 
+AS  (col 45): Hàng gói Ok
+AT  (col 46): Số gói
+AU  (col 47): Ngày gói
+AV  (col 48): 
+AW  (col 49): Mail
+AX  (col 50): máy
+
+================================================================================
+COLUMNS NEEDED FOR RRC CALCULATION:
+================================================================================
+Column K (#11): Số lượng ĐH
+Column L (#12): KH
+Column Q (#17): Ngày giao phôi sx AMJ
+Column AO (#41): Ngày giao QLCL

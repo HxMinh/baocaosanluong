@@ -1,0 +1,39 @@
+# Python stuff
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+
+# Streamlit config (optional to ignore, but usually safe)
+.streamlit/secrets.toml
+
+# Logs
+*.log
+
+# Debug files
+debug_*.py
+test_*.py
+check_*.py
+
+# Security keys (DO NOT UPLOAD)
+*.json
+
+# Excel files (data already synced to Google Sheets)
+*.xlsx
+*.xlsm
+*.xls
+*.xlsb
+
+# Windows shortcuts
+*.lnk
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Local sync directory
+excel_sync/
