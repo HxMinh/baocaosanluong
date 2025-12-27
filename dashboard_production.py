@@ -35,7 +35,19 @@ def authenticate_google_sheets():
     try:
         scopes = ['https://www.googleapis.com/auth/spreadsheets']
         
-        # Try LOCAL JSON file FIRST
+        # Try Streamlit secrets FIRST (for cloud deployment)
+        try:
+            if hasattr(st, 'secrets') and "gcp_service_account" in st.secrets:
+                # Read from Streamlit secrets (TOML format)
+                creds = Credentials.from_service_account_info(
+                    dict(st.secrets["gcp_service_account"]),
+                    scopes=scopes
+                )
+                return gspread.authorize(creds)
+        except Exception as e:
+            st.warning(f"⚠️ Không thể đọc từ Streamlit Secrets: {e}")
+        
+        # Fallback: Try LOCAL JSON file (for local development)
         if os.path.exists(CONFIG['google_credentials']):
             creds = Credentials.from_service_account_file(
                 CONFIG['google_credentials'],
@@ -43,19 +55,7 @@ def authenticate_google_sheets():
             )
             return gspread.authorize(creds)
         
-        # Try Streamlit secrets
-        try:
-            if hasattr(st, 'secrets') and "gcp_service_account_base64" in st.secrets:
-                import base64
-                import json
-                decoded = base64.b64decode(st.secrets["gcp_service_account_base64"]).decode()
-                creds_dict = json.loads(decoded)
-                creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-                return gspread.authorize(creds)
-        except Exception:
-            pass
-        
-        st.error("❌ Không tìm thấy credentials")
+        st.error("❌ Không tìm thấy credentials. Vui lòng cấu hình Secrets trên Streamlit Cloud.")
         return None
     except Exception as e:
         st.error(f"❌ Lỗi xác thực: {e}")
@@ -70,7 +70,8 @@ def read_gckt_data():
             return None
         
         spreadsheet = client.open_by_url(CONFIG['google_sheet_url'])
-        worksheet = spreadsheet.worksheet('GCKT_GPKT')
+        # TODO: Thay 'GCKT_GPKT' bằng tên worksheet thực tế trong Google Sheet
+        worksheet = spreadsheet.worksheet('GCKT_GPKT')  # Hoặc tên worksheet khác
         
         # Đọc dữ liệu theo batch để tránh timeout
         # Lấy số dòng và cột
