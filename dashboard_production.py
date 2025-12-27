@@ -1062,16 +1062,21 @@ def main():
         external_pkt_inventory = 0
         try:
             with st.spinner("Đang tính hàng tồn RRC và Hàng ngoài..."):
-                # Use combined function for all inventory metrics
-                all_inventory = calculate_all_inventory_metrics(
-                    sheet_url=CONFIG['google_sheet_url'],
-                    credentials_file=CONFIG['google_credentials']
-                )
-                
-                rrc_inventory = all_inventory['rrc_inventory']
-                external_inventory = all_inventory['external_inventory']
-                rrc_pkt_inventory = all_inventory['rrc_pkt_inventory']
-                external_pkt_inventory = all_inventory['external_pkt_inventory']
+                # Get authenticated client
+                client = authenticate_google_sheets()
+                if client:
+                    # Use combined function for all inventory metrics
+                    all_inventory = calculate_all_inventory_metrics(
+                        sheet_url=CONFIG['google_sheet_url'],
+                        gspread_client=client  # Pass authenticated client instead of file
+                    )
+                    
+                    rrc_inventory = all_inventory['rrc_inventory']
+                    external_inventory = all_inventory['external_inventory']
+                    rrc_pkt_inventory = all_inventory['rrc_pkt_inventory']
+                    external_pkt_inventory = all_inventory['external_pkt_inventory']
+                else:
+                    st.warning("⚠️ Không thể xác thực Google Sheets")
         except Exception as e:
             st.warning(f"⚠️ Không thể tính hàng tồn: {e}")
         
@@ -1210,23 +1215,28 @@ def main():
         
         try:
             with st.spinner("Đang tính quá hạn và tới hạn..."):
-                # OPTIMIZED: Calculate ALL metrics in ONE API call
-                all_metrics = calculate_all_overdue_metrics(
-                    sheet_url=CONFIG['google_sheet_url'],
-                    credentials_file=CONFIG['google_credentials']
-                )
-                
-                # Extract SX AMJ metrics
-                rrc_overdue = all_metrics['sx_rrc_overdue']
-                rrc_due_soon = all_metrics['sx_rrc_due_soon']
-                ext_overdue = all_metrics['sx_ext_overdue']
-                ext_due_soon = all_metrics['sx_ext_due_soon']
-                
-                # Extract PKT AMJ metrics
-                pkt_rrc_overdue = all_metrics['pkt_rrc_overdue']
-                pkt_rrc_due_soon = all_metrics['pkt_rrc_due_soon']
-                pkt_ext_overdue = all_metrics['pkt_ext_overdue']
-                pkt_ext_due_soon = all_metrics['pkt_ext_due_soon']
+                # Get authenticated client
+                client = authenticate_google_sheets()
+                if client:
+                    # OPTIMIZED: Calculate ALL metrics in ONE API call
+                    all_metrics = calculate_all_overdue_metrics(
+                        sheet_url=CONFIG['google_sheet_url'],
+                        gspread_client=client  # Pass authenticated client
+                    )
+                    
+                    # Extract SX AMJ metrics
+                    rrc_overdue = all_metrics['sx_rrc_overdue']
+                    rrc_due_soon = all_metrics['sx_rrc_due_soon']
+                    ext_overdue = all_metrics['sx_ext_overdue']
+                    ext_due_soon = all_metrics['sx_ext_due_soon']
+                    
+                    # Extract PKT AMJ metrics
+                    pkt_rrc_overdue = all_metrics['pkt_rrc_overdue']
+                    pkt_rrc_due_soon = all_metrics['pkt_rrc_due_soon']
+                    pkt_ext_overdue = all_metrics['pkt_ext_overdue']
+                    pkt_ext_due_soon = all_metrics['pkt_ext_due_soon']
+                else:
+                    st.warning("⚠️ Không thể xác thực Google Sheets")
         except Exception as e:
             st.warning(f"⚠️ Không thể tính quá hạn/tới hạn: {e}")
         

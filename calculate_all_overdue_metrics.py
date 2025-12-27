@@ -19,7 +19,8 @@ def authenticate_google_sheets(credentials_file: str):
 
 def calculate_all_overdue_metrics(
     sheet_url: str,
-    credentials_file: str,
+    credentials_file: str = None,
+    gspread_client=None,
     worksheet_name: str = 'KHSX_KHSX',
     header_row: int = 4,
     data_start_row: int = 5
@@ -30,9 +31,22 @@ def calculate_all_overdue_metrics(
     - PKT AMJ: RRC & External (Overdue & Due Soon)
     
     Returns dict with all 8 metrics
+    
+    Args:
+        sheet_url: Google Sheets URL
+        credentials_file: Path to JSON credentials (optional, for local)
+        gspread_client: Pre-authenticated gspread client (optional, for cloud)
     """
-    # Authenticate ONCE
-    client = authenticate_google_sheets(credentials_file)
+    # Use provided client OR authenticate with file
+    if gspread_client is not None:
+        client = gspread_client
+    elif credentials_file:
+        scopes = ['https://www.googleapis.com/auth/spreadsheets']
+        creds = Credentials.from_service_account_file(credentials_file, scopes=scopes)
+        client = gspread.authorize(creds)
+    else:
+        raise ValueError("Either gspread_client or credentials_file must be provided")
+    
     spreadsheet = client.open_by_url(sheet_url)
     worksheet = spreadsheet.worksheet(worksheet_name)
     
