@@ -11,6 +11,7 @@ from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
 import os
+import time
 from qc_capacity_helper import calculate_quality_control_capacity
 from calculate_all_inventory_metrics import calculate_all_inventory_metrics
 from calculate_all_overdue_metrics import calculate_all_overdue_metrics
@@ -26,6 +27,45 @@ CONFIG = {
     'google_credentials': 'api-agent-471608-912673253587.json',
     'google_sheet_url': 'https://docs.google.com/spreadsheets/d/1F2NzTR50kXzGx9Pc5KdBwwqnIRXGvViPv6mgw8YMNW0/edit'
 }
+
+# ============= RETRY LOGIC FOR QUOTA HANDLING =============
+
+def retry_with_backoff(func, max_retries=5, initial_delay=1):
+    """
+    Retry a function with exponential backoff when encountering quota errors
+    
+    Args:
+        func: Function to retry
+        max_retries: Maximum number of retry attempts
+        initial_delay: Initial delay in seconds (will be doubled each retry)
+    
+    Returns:
+        Result of the function call
+    """
+    for attempt in range(max_retries):
+        try:
+            result = func()
+            # Add small delay between successful calls to avoid hitting quota
+            time.sleep(0.5)
+            return result
+        except Exception as e:
+            error_msg = str(e).lower()
+            
+            # Check if it's a quota error
+            if 'quota' in error_msg or 'rate limit' in error_msg or 'too many requests' in error_msg:
+                if attempt < max_retries - 1:
+                    delay = initial_delay * (2 ** attempt)
+                    st.warning(f"⚠️ Quota exceeded, đang chờ {delay}s trước khi thử lại... (Lần {attempt + 1}/{max_retries})")
+                    time.sleep(delay)
+                    continue
+                else:
+                    st.error(f"❌ Đã thử {max_retries} lần nhưng vẫn gặp lỗi quota. Vui lòng đợi vài phút rồi thử lại.")
+                    raise
+            else:
+                # Not a quota error, raise immediately
+                raise
+    
+    return None
 
 # ============= AUTHENTICATION FUNCTIONS =============
 
@@ -64,7 +104,7 @@ def authenticate_google_sheets():
         st.error(f"❌ Lỗi xác thực: {e}")
         return None
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=1800)  # Cache for 30 minutes to reduce API calls
 def read_gckt_data():
     """Đọc dữ liệu từ sheet GCKT_GPKT với batch reading để tránh timeout"""
     try:
@@ -81,8 +121,8 @@ def read_gckt_data():
         row_count = worksheet.row_count
         col_count = worksheet.col_count
         
-        # Đọc header trước
-        header = worksheet.row_values(1)
+        # Đọc header trước với retry logic
+        header = retry_with_backoff(lambda: worksheet.row_values(1))
         
         # Đọc dữ liệu theo batch 1000 dòng mỗi lần
         batch_size = 1000
@@ -91,11 +131,16 @@ def read_gckt_data():
         for start_row in range(2, row_count + 1, batch_size):
             end_row = min(start_row + batch_size - 1, row_count)
             
-            # Đọc batch
+            # Đọc batch với retry logic
             try:
-                batch_data = worksheet.get_values(f'A{start_row}:{chr(65 + col_count - 1)}{end_row}')
+                batch_data = retry_with_backoff(
+                    lambda: worksheet.get_values(f'A{start_row}:{chr(65 + col_count - 1)}{end_row}')
+                )
                 if batch_data:
                     all_data.extend(batch_data)
+                
+                # Add delay between batches to avoid quota
+                time.sleep(1)
             except Exception as batch_error:
                 st.warning(f"⚠️ Lỗi đọc batch {start_row}-{end_row}: {batch_error}")
                 continue
@@ -116,7 +161,7 @@ def read_gckt_data():
         st.error(f"❌ Lỗi đọc dữ liệu GCKT_GPKT: {e}")
         return None
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=1800)  # Cache for 30 minutes
 def read_pky_data():
     """Đọc dữ liệu từ sheet PKY"""
     try:
@@ -126,7 +171,9 @@ def read_pky_data():
         
         spreadsheet = client.open_by_url(CONFIG['google_sheet_url'])
         worksheet = spreadsheet.worksheet('pky')
-        data = worksheet.get_all_values()
+        
+        # Use retry logic for API call
+        data = retry_with_backoff(lambda: worksheet.get_all_values())
         
         if data and len(data) > 1:
             df = pd.DataFrame(data[1:], columns=data[0])
@@ -136,7 +183,7 @@ def read_pky_data():
         st.error(f"❌ Lỗi đọc dữ liệu PKY: {e}")
         return None
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=1800)  # Cache for 30 minutes
 def read_phtcv_data():
     """Đọc dữ liệu từ sheet PHTCV"""
     try:
@@ -146,7 +193,9 @@ def read_phtcv_data():
         
         spreadsheet = client.open_by_url(CONFIG['google_sheet_url'])
         worksheet = spreadsheet.worksheet('PHTCV')
-        data = worksheet.get_all_values()
+        
+        # Use retry logic for API call
+        data = retry_with_backoff(lambda: worksheet.get_all_values())
         
         if data and len(data) > 1:
             df = pd.DataFrame(data[1:], columns=data[0])
@@ -156,7 +205,7 @@ def read_phtcv_data():
         st.error(f"❌ Lỗi đọc dữ liệu PHTCV: {e}")
         return None
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=1800)  # Cache for 30 minutes
 def read_machine_list():
     """Đọc danh sách máy từ sheet machine_list"""
     try:
@@ -166,7 +215,9 @@ def read_machine_list():
         
         spreadsheet = client.open_by_url(CONFIG['google_sheet_url'])
         worksheet = spreadsheet.worksheet('machine_list')
-        data = worksheet.get_all_values()
+        
+        # Use retry logic for API call
+        data = retry_with_backoff(lambda: worksheet.get_all_values())
         
         if data and len(data) > 1:
             df = pd.DataFrame(data[1:], columns=data[0])
@@ -176,7 +227,7 @@ def read_machine_list():
         st.error(f"❌ Lỗi đọc dữ liệu machine_list: {e}")
         return None
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=1800)  # Cache for 30 minutes
 def read_giao_kho_vp_data():
     """Đọc dữ liệu từ sheet giao_kho_vp (Kiểm tra AMJ)"""
     try:
@@ -186,7 +237,9 @@ def read_giao_kho_vp_data():
         
         spreadsheet = client.open_by_url(CONFIG['google_sheet_url'])
         worksheet = spreadsheet.worksheet('giao_kho_vp')
-        data = worksheet.get_all_values()
+        
+        # Use retry logic for API call
+        data = retry_with_backoff(lambda: worksheet.get_all_values())
         
         if data and len(data) > 1:
             df = pd.DataFrame(data[1:], columns=data[0])
@@ -196,7 +249,7 @@ def read_giao_kho_vp_data():
         st.error(f"❌ Lỗi đọc dữ liệu giao_kho_vp: {e}")
         return None
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=1800)  # Cache for 30 minutes
 def read_shift_schedule_data():
     """Đọc dữ liệu từ sheet __SHIFT__Shift Schedule"""
     try:
@@ -206,7 +259,9 @@ def read_shift_schedule_data():
         
         spreadsheet = client.open_by_url(CONFIG['google_sheet_url'])
         worksheet = spreadsheet.worksheet('__SHIFT__Shift Schedule')
-        data = worksheet.get_all_values()
+        
+        # Use retry logic for API call
+        data = retry_with_backoff(lambda: worksheet.get_all_values())
         
         if data and len(data) > 1:
             df = pd.DataFrame(data[1:], columns=data[0])
@@ -225,7 +280,7 @@ def read_shift_schedule_data():
         st.error(f"❌ Lỗi đọc dữ liệu Shift Schedule: {e}")
         return None
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=1800)  # Cache for 30 minutes
 def read_hr_daily_head_counts_data():
     """Đọc dữ liệu từ sheet __HR_SYSTEM__Daily Head Counts"""
     try:
@@ -235,7 +290,9 @@ def read_hr_daily_head_counts_data():
         
         spreadsheet = client.open_by_url(CONFIG['google_sheet_url'])
         worksheet = spreadsheet.worksheet('__HR_SYSTEM__Daily Head Counts')
-        data = worksheet.get_all_values()
+        
+        # Use retry logic for API call
+        data = retry_with_backoff(lambda: worksheet.get_all_values())
         
         if data and len(data) > 1:
             df = pd.DataFrame(data[1:], columns=data[0])
@@ -254,7 +311,7 @@ def read_hr_daily_head_counts_data():
         st.error(f"❌ Lỗi đọc dữ liệu HR Daily Head Counts: {e}")
         return None
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=1800)  # Cache for 30 minutes
 def read_thoi_gian_hoan_thanh_data():
     """Đọc dữ liệu từ sheet thoi_gian_hoan_thanh"""
     try:
@@ -264,7 +321,9 @@ def read_thoi_gian_hoan_thanh_data():
         
         spreadsheet = client.open_by_url(CONFIG['google_sheet_url'])
         worksheet = spreadsheet.worksheet('thoi_gian_hoan_thanh')
-        data = worksheet.get_all_values()
+        
+        # Use retry logic for API call
+        data = retry_with_backoff(lambda: worksheet.get_all_values())
         
         if data and len(data) > 1:
             df = pd.DataFrame(data[1:], columns=data[0])
@@ -282,8 +341,10 @@ def load_all_data_parallel():
     """
     Load all data sheets in parallel for faster performance
     Reduces load time from ~15s to ~5-7s
+    
+    Note: Using max_workers=3 to avoid hitting Google Sheets API quota
     """
-    with ThreadPoolExecutor(max_workers=8) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor:  # Reduced from 8 to 3 to avoid quota issues
         # Submit all read tasks concurrently
         futures = {
             executor.submit(read_gckt_data): 'GCKT_GPKT',
