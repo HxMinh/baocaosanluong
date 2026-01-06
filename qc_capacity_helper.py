@@ -50,26 +50,39 @@ def calculate_quality_control_capacity(
     
     test_date_parsed = pd.to_datetime(selected_date, format='%d/%m/%Y')
     
-    # ============= Calculate A (12h workers) =============
-    # PRIORITY 1: Try to get from Daily Head Counts first
-    A = 0
+    # ============= Calculate A for CS Tổng and CS Trực Tiếp =============
+    # A_tong: Total 12h workers (for CS Tổng)
+    # A_truc_tiep: Direct 12h workers only (for CS Trực Tiếp)
+    
+    A_tong = 0
+    A_truc_tiep = 0
+    
     df_hr_filtered = df_hr_daily_head_counts[
         (df_hr_daily_head_counts['Department ID'] == '0300_BPKT') &
         (df_hr_daily_head_counts['Working Date Parsed'] == test_date_parsed)
     ].copy()
     
     if len(df_hr_filtered) > 0:
-        # Try to get from "Tong So Nguoi Lam Them Gio 12h Truc Tiep" column
-        if 'Tong So Nguoi Lam Them Gio 12h Truc Tiep' in df_hr_filtered.columns:
-            a_str = str(df_hr_filtered['Tong So Nguoi Lam Them Gio 12h Truc Tiep'].iloc[0]).strip()
-            if a_str and a_str != '' and a_str != 'nan':
+        # Get A_tong from "Tong So Nguoi Lam Them Gio 12h" (total 12h workers)
+        if 'Tong So Nguoi Lam Them Gio 12h' in df_hr_filtered.columns:
+            a_tong_str = str(df_hr_filtered['Tong So Nguoi Lam Them Gio 12h'].iloc[0]).strip()
+            if a_tong_str and a_tong_str != '' and a_tong_str != 'nan':
                 try:
-                    A = int(float(a_str.replace(',', '.')))
+                    A_tong = int(float(a_tong_str.replace(',', '.')))
                 except:
-                    A = 0
+                    A_tong = 0
+        
+        # Get A_truc_tiep from "Tong So Nguoi Lam Them Gio 12h Truc Tiep" (direct 12h workers)
+        if 'Tong So Nguoi Lam Them Gio 12h Truc Tiep' in df_hr_filtered.columns:
+            a_truc_tiep_str = str(df_hr_filtered['Tong So Nguoi Lam Them Gio 12h Truc Tiep'].iloc[0]).strip()
+            if a_truc_tiep_str and a_truc_tiep_str != '' and a_truc_tiep_str != 'nan':
+                try:
+                    A_truc_tiep = int(float(a_truc_tiep_str.replace(',', '.')))
+                except:
+                    A_truc_tiep = 0
     
-    # PRIORITY 2: If A is still 0, fallback to Shift Schedule logic
-    if A == 0:
+    # FALLBACK: If A_tong is still 0, use Shift Schedule
+    if A_tong == 0:
         df_shift_filtered = df_shift_schedule[
             (df_shift_schedule['Department ID'] == '0300_BPKT') &
             (df_shift_schedule['Work Date Parsed'] == test_date_parsed)
@@ -77,20 +90,24 @@ def calculate_quality_control_capacity(
         
         d12_count = len(df_shift_filtered[df_shift_filtered['Shift Type ID'] == 'D12'])
         s12_count = len(df_shift_filtered[df_shift_filtered['Shift Type ID'] == 'S12'])
-        A = d12_count + s12_count
+        A_tong = d12_count + s12_count
     
-    # ============= Calculate B (8h workers) =============
-    # df_hr_filtered already loaded above
+    # If A_truc_tiep is still 0, use A_tong as fallback
+    if A_truc_tiep == 0:
+        A_truc_tiep = A_tong
+    
+    # ============= Calculate B (8h workers) for CS Tổng =============
+    # Use A_tong for calculating total workforce
     
     if len(df_hr_filtered) > 0:
         dept_emp_count_str = df_hr_filtered['Department Employees Count'].iloc[0]
         dept_emp_count = float(str(dept_emp_count_str).replace(',', '.'))
-        B = dept_emp_count - A
+        B_tong = dept_emp_count - A_tong
     else:
-        B = 0
+        B_tong = 0
     
-    # ============= Calculate 100-person time =============
-    thoi_gian_100_nguoi = (A * 10 * 60) + (B * 6.5 * 60)
+    # ============= Calculate 100-person time (for CS Tổng) =============
+    thoi_gian_100_nguoi = (A_tong * 10 * 60) + (B_tong * 6.5 * 60)
     
     # ============= Calculate total completion time =============
     total_completion_time = 0
@@ -120,6 +137,7 @@ def calculate_quality_control_capacity(
             except:
                 return 0
         
+        # Extract PKT codes
         IKTBV = get_time_value('IKTBV')
         IKTHD = get_time_value('IKTHD')
         IKMBV = get_time_value('IKMBV')
@@ -129,19 +147,28 @@ def calculate_quality_control_capacity(
         other_codes = ['ITNBM', 'ITTBS', 'IVNBM', 'IVTBS', 'IRNBM', 'IRNXS', 'IRLSP', 'IDLSS', 'IDDGS']
         total_other_time = sum(get_time_value(code) for code in other_codes)
         
+        # Extract IXLT and IXLM codes (NEW)
+        IXXLT = get_time_value('IXXLT')
+        IXXLM = get_time_value('IXXLM')
+        
         # Calculate PKT time based on sll conditions
         if sll <= 2:
             pkt_time = sll * IKTBV + sll * IKMBV
-        elif sll < 10:
+        elif sll <= 10:  # Changed: 2 < sll <= 10
             pkt_time = 2 * IKTBV + (sll - 2) * IKTHD + IKMBV + (sll - 2) * IKMHD
-        else:  # sll >= 10
+        else:  # sll > 10 (Changed from >= 10)
             pkt_time = 1 * IKTBV + (sll - 1) * IKTHD + IKMBV + (sll - 1) * IKMHD
         
         # Calculate other groups time
+        # Formula: (ITNBM + ITTBS + IVNBM + IVTBS + IRNBM + IRNXS + IRLSP + IDLSS + IDDGS) × sll
         other_time = total_other_time * sll
         
-        # Total time = Other groups + PKT
-        time = other_time + pkt_time
+        # Calculate IXXLT and IXXLM time
+        # Formula: (sll × IXXLT) + (sll × IXXLM)
+        ixlt_ixlm_time = sll * IXXLT + sll * IXXLM
+        
+        # Total time = PKT time + Other time + IXXLT/IXXLM time
+        time = pkt_time + other_time + ixlt_ixlm_time
         total_completion_time += time
     
     # ============= Calculate CS Tổng =============
@@ -151,6 +178,7 @@ def calculate_quality_control_capacity(
         cs_tong = 0
     
     # ============= Calculate CS Trực Tiếp =============
+    # Use A_truc_tiep (direct 12h workers only)
     cs_truc_tiep = 0
     thoi_gian_nguoi_truc_tiep = 0
     practical_employees_count = 0
@@ -161,8 +189,8 @@ def calculate_quality_control_capacity(
         practical_employees_count = float(str(practical_emp_str).replace(',', '.'))
         
         # Calculate direct worker time
-        # = (Practical Employees - A) × 6.5 × 60 + A × 10 × 60
-        thoi_gian_nguoi_truc_tiep = (practical_employees_count - A) * 6.5 * 60 + A * 10 * 60
+        # = (Practical Employees - A_truc_tiep) × 6.5 × 60 + A_truc_tiep × 10 × 60
+        thoi_gian_nguoi_truc_tiep = (practical_employees_count - A_truc_tiep) * 6.5 * 60 + A_truc_tiep * 10 * 60
         
         # Calculate CS trực tiếp
         if thoi_gian_nguoi_truc_tiep > 0:
@@ -171,8 +199,9 @@ def calculate_quality_control_capacity(
     result = {
         'cs_tong': cs_tong,
         'cs_truc_tiep': cs_truc_tiep,
-        'A': A,
-        'B': B,
+        'A_tong': A_tong,
+        'A_truc_tiep': A_truc_tiep,
+        'B_tong': B_tong,
         'practical_employees_count': practical_employees_count,
         'thoi_gian_100_nguoi': thoi_gian_100_nguoi,
         'thoi_gian_nguoi_truc_tiep': thoi_gian_nguoi_truc_tiep,
