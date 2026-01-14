@@ -1322,32 +1322,32 @@ def main():
         with col1:
             st.markdown("Sản xuất AMJ")
         with col2:
-            st.metric(label="", value=f"{rrc_overdue:,}")
+            st.metric(label="RRC Quá hạn", value=f"{rrc_overdue:,}", label_visibility="collapsed")
         with col3:
-            st.metric(label="", value=f"{rrc_due_soon:,}")
+            st.metric(label="RRC Tới hạn", value=f"{rrc_due_soon:,}", label_visibility="collapsed")
         with col4:
-            st.metric(label="", value=f"{ext_overdue:,}")
+            st.metric(label="Hàng ngoài Quá hạn", value=f"{ext_overdue:,}", label_visibility="collapsed")
         with col5:
-            st.metric(label="", value=f"{ext_due_soon:,}")
+            st.metric(label="Hàng ngoài Tới hạn", value=f"{ext_due_soon:,}", label_visibility="collapsed")
         with col6:
             total_overdue_due_sx = rrc_overdue + rrc_due_soon + ext_overdue + ext_due_soon
-            st.metric(label="", value=f"{total_overdue_due_sx:,}")
+            st.metric(label="Tổng", value=f"{total_overdue_due_sx:,}", label_visibility="collapsed")
         
         # Row: Kiểm tra AMJ (PKT)
         col1, col2, col3, col4, col5, col6 = st.columns([2, 1, 1, 1, 1, 1])
         with col1:
             st.markdown("Kiểm tra AMJ")
         with col2:
-            st.metric(label="", value=f"{pkt_rrc_overdue:,}")
+            st.metric(label="RRC Quá hạn", value=f"{pkt_rrc_overdue:,}", label_visibility="collapsed")
         with col3:
-            st.metric(label="", value=f"{pkt_rrc_due_soon:,}")
+            st.metric(label="RRC Tới hạn", value=f"{pkt_rrc_due_soon:,}", label_visibility="collapsed")
         with col4:
-            st.metric(label="", value=f"{pkt_ext_overdue:,}")
+            st.metric(label="Hàng ngoài Quá hạn", value=f"{pkt_ext_overdue:,}", label_visibility="collapsed")
         with col5:
-            st.metric(label="", value=f"{pkt_ext_due_soon:,}")
+            st.metric(label="Hàng ngoài Tới hạn", value=f"{pkt_ext_due_soon:,}", label_visibility="collapsed")
         with col6:
             total_overdue_due_pkt = pkt_rrc_overdue + pkt_rrc_due_soon + pkt_ext_overdue + pkt_ext_due_soon
-            st.metric(label="", value=f"{total_overdue_due_pkt:,}")
+            st.metric(label="Tổng", value=f"{total_overdue_due_pkt:,}", label_visibility="collapsed")
         
         # Section 4: Actual Overdue (Password Protected)
         st.markdown("---")
