@@ -509,7 +509,7 @@ def main():
         st.markdown("---")
         col_exp1, col_exp2, col_exp3 = st.columns([1, 2, 1])
         with col_exp2:
-            if st.button("📥 Xuất Excel - Sản lượng", width="expand"):
+            if st.button("📥 Xuất Excel - Sản lượng", width="stretch"):
                 # Prepare export data
                 export_df = df_filtered.copy()
                 
@@ -552,7 +552,7 @@ def main():
                         data=excel_data,
                         file_name=filename,
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        width="expand"
+                        width="stretch"
                     )
         
         # Display header with date or month
@@ -1701,13 +1701,13 @@ def main():
                 height=400
             )
             
-            st.plotly_chart(fig, width="expand")
+            st.plotly_chart(fig, width="stretch")
             
             # Excel Export Button for Capacity Data
             st.markdown("---")
             col_cap_exp1, col_cap_exp2, col_cap_exp3 = st.columns([1, 2, 1])
             with col_cap_exp2:
-                if st.button("📥 Xuất Excel - Công suất Sản xuất", width="expand", key="export_capacity_sx"):
+                if st.button("📥 Xuất Excel - Công suất Sản xuất", width="stretch", key="export_capacity_sx"):
                     # Prepare export dataframe
                     export_capacity_df = df_trend.copy()
                     export_capacity_df = export_capacity_df.rename(columns={
@@ -1742,7 +1742,7 @@ def main():
                         data=excel_data,
                         file_name=filename,
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        width="expand",
+                        width="stretch",
                         key="download_capacity_sx"
                     )
         else:
@@ -1767,7 +1767,7 @@ def main():
                 df_debug['Tổng số NC'] = df_debug['Tổng số NC'].apply(lambda x: f"{x:.0f}" if pd.notna(x) and x != 0 else "0")
                 df_debug['Thời gian gia công (phút)'] = df_debug['Thời gian gia công (phút)'].apply(lambda x: f"{x:.1f}" if pd.notna(x) and x != 0 else "0.0")
                 
-                st.dataframe(df_debug, width="expand", height=300)
+                st.dataframe(df_debug, width="stretch", height=300)
                 
                 # Show total
                 col1, col2, col3 = st.columns(3)
@@ -1816,7 +1816,7 @@ def main():
                         })
                     
                     df_machines_12h = pd.DataFrame(machine_list_data)
-                    st.dataframe(df_machines_12h, width="expand", hide_index=True)
+                    st.dataframe(df_machines_12h, width="stretch", hide_index=True)
                     
                     # Show breakdown by department
                     st.markdown("##### 📊 Phân bổ theo bộ phận:")
@@ -1976,13 +1976,13 @@ def main():
                             height=400
                         )
                         
-                        st.plotly_chart(fig_qc, width="expand")
+                        st.plotly_chart(fig_qc, width="stretch")
                         
                         # Excel Export Button for QC Capacity Data
                         st.markdown("---")
                         col_qc_exp1, col_qc_exp2, col_qc_exp3 = st.columns([1, 2, 1])
                         with col_qc_exp2:
-                            if st.button("📥 Xuất Excel - Công suất Kiểm tra", width="expand", key="export_capacity_qc"):
+                            if st.button("📥 Xuất Excel - Công suất Kiểm tra", width="stretch", key="export_capacity_qc"):
                                 # Prepare export dataframe
                                 export_qc_df = df_qc_trend.copy()
                                 export_qc_df = export_qc_df.rename(columns={
@@ -2015,7 +2015,7 @@ def main():
                                     data=excel_data,
                                     file_name=filename,
                                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                    width="expand",
+                                    width="stretch",
                                     key="download_capacity_qc"
                                 )
                     else:
