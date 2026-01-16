@@ -1307,6 +1307,48 @@ def main():
         with col3:
             st.metric(label="CS trực tiếp", value=f"{cs_truc_tiep:.1f}%")
         
+        # Machine details display (only for single-day selection)
+        if selected_date != 'Tất cả' and 'total_stopped_sx1' in locals() and 'total_stopped_sx2' in locals():
+            with st.expander("🔧 Chi tiết máy móc", expanded=False):
+                # Calculate machines running 12h and 8h for each department
+                # Get all machines from machine_list
+                all_machines_list = []
+                if df_machine_list is not None and not df_machine_list.empty:
+                    if 'số máy' in df_machine_list.columns:
+                        for _, row in df_machine_list.iterrows():
+                            machine = str(row.get('số máy', '')).strip()
+                            if machine:
+                                all_machines_list.append(machine)
+                
+                # Get machines running (not stopped) in each department
+                machines_running_sx1 = [m for m in all_machines_list if m not in all_stopped_sx1]
+                machines_running_sx2 = [m for m in all_machines_list if m not in all_stopped_sx2]
+                
+                # Count 12h machines in each department
+                machines_12h_sx1 = [m for m in machines_12h if m in machines_running_sx1]
+                machines_12h_sx2 = [m for m in machines_12h if m in machines_running_sx2]
+                
+                # Count 8h machines in each department
+                machines_8h_sx1 = [m for m in machines_running_sx1 if m not in machines_12h]
+                machines_8h_sx2 = [m for m in machines_running_sx2 if m not in machines_12h]
+                
+                # Display in 2 columns
+                col_sx1, col_sx2 = st.columns(2)
+                
+                with col_sx1:
+                    st.markdown("**Sản xuất 1:**")
+                    st.write(f"• Máy chạy 12h: **{len(machines_12h_sx1)}** máy")
+                    st.write(f"• Máy chạy 8h: **{len(machines_8h_sx1)}** máy")
+                    st.write(f"• Máy dừng: **{total_stopped_sx1}** máy")
+                    st.write(f"• Tổng: **{len(machines_12h_sx1) + len(machines_8h_sx1) + total_stopped_sx1}** máy")
+                
+                with col_sx2:
+                    st.markdown("**Sản xuất 2:**")
+                    st.write(f"• Máy chạy 12h: **{len(machines_12h_sx2)}** máy")
+                    st.write(f"• Máy chạy 8h: **{len(machines_8h_sx2)}** máy")
+                    st.write(f"• Máy dừng: **{total_stopped_sx2}** máy")
+                    st.write(f"• Tổng: **{len(machines_12h_sx2) + len(machines_8h_sx2) + total_stopped_sx2}** máy")
+        
         # Hàng tồn tổng kế hoạch section
         st.markdown("#### Hàng tồn tổng kế hoạch")
         col4, col5, col6 = st.columns([1, 1, 1])
