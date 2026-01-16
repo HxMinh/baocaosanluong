@@ -2126,14 +2126,15 @@ def main():
                 marker=dict(size=6)
             ), secondary_y=False)
             
-            # Add Sản lượng line (secondary y-axis)
+            # Add Sản lượng (secondary y-axis) - Show values only (no line)
             fig.add_trace(go.Scatter(
                 x=df_trend['date_str'],
                 y=df_trend['Sản lượng'],
-                mode='lines+markers',
+                mode='markers+text',  # Only markers and text, no lines
+                text=df_trend['Sản lượng'].apply(lambda x: f"{int(x):,}"), # Format with thousands separator
+                textposition='top center',
                 name='Sản lượng',
-                line=dict(color='#e74c3c', width=2, dash='dot'),
-                marker=dict(size=6, symbol='diamond')
+                marker=dict(size=8, symbol='diamond', color='#e74c3c')
             ), secondary_y=True)
             
             # Update layout
