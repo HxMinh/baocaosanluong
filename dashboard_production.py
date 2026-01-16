@@ -772,7 +772,8 @@ def main():
                     
                     for single_date in pd.date_range(start=start_date_month, end=end_date_month):
                         # FIXED: Calculate tong_thoi_gian_gia_cong from GCKT_GPKT + PKY (matching single-day logic)
-                        df_gckt_day = df_filtered[df_filtered['ngay_giao_parsed'].dt.date == single_date.date()].copy()
+                        # Use df_gckt (unfiltered) instead of df_filtered to get all days in month
+                        df_gckt_day = df_gckt[df_gckt['ngay_giao_parsed'].dt.date == single_date.date()].copy()
                         
                         if len(df_gckt_day) == 0:
                             continue
@@ -1733,8 +1734,8 @@ def main():
                 thoi_gian_may_chay_day = (A_day * 14 * 60) + (B_day * 20 * 60)
             
             # FIXED: Calculate tong_thoi_gian_gia_cong from GCKT_GPKT + PKY (matching main logic)
-            # Filter GCKT by this date
-            df_gckt_day = df_filtered[df_filtered['ngay_giao_parsed'].dt.date == single_date.date()].copy()
+            # Filter GCKT by this date - use df_gckt (unfiltered) to get all days in month
+            df_gckt_day = df_gckt[df_gckt['ngay_giao_parsed'].dt.date == single_date.date()].copy()
             
             if len(df_gckt_day) == 0:
                 continue
