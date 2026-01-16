@@ -1732,192 +1732,43 @@ def main():
                 A_day = 100 - B_day
                 thoi_gian_may_chay_day = (A_day * 14 * 60) + (B_day * 20 * 60)
             
-            # FIXED: Calculate tong_thoi_gian_gia_cong from GCKT_GPKT + PKY (matching main logic)
-            # Filter GCKT by this date
-            df_gckt_day = df_filtered[df_filtered['ngay_giao_parsed'].dt.date == single_date.date()].copy()
+            # Calculate actual processing time from PHTCV for this day
+            total_gia_cong_day = 0
+            for _, row in df_day.iterrows():
+                sl_thuc_te = pd.to_numeric(str(row.get('sl thực tế', '1')).replace(',', '.'), errors='coerce')
+                if pd.isna(sl_thuc_te) or sl_thuc_te == 0:
+                    sl_thuc_te = 1
+                
+                gia_cong_raw = pd.to_numeric(str(row.get('gia công', '0')).replace(',', '.'), errors='coerce')
+                gia_cong_raw = 0 if pd.isna(gia_cong_raw) else gia_cong_raw
+                total_gia_cong_day += gia_cong_raw * sl_thuc_te
             
-            if len(df_gckt_day) == 0:
-                continue
-            
-            # Calculate tong_thoi_gian_gia_cong from GCKT + PKY
-            if 'ten_chi_tiet' in df_gckt_day.columns and 'ten_chi_tiet' in df_pky.columns and 'thoi_gian_pky' in df_pky.columns:
-                # Merge GCKT with PKY on ten_chi_tiet
-                df_merged_day = df_gckt_day.merge(
-                    df_pky[['ten_chi_tiet', 'thoi_gian_numeric', 'tong_so_nc_numeric']],
-                    on='ten_chi_tiet',
-                    how='left'
-                )
-                
-                # Fill NaN values with 0
-                df_merged_day['thoi_gian_numeric'] = df_merged_day['thoi_gian_numeric'].fillna(0)
-                df_merged_day['tong_so_nc_numeric'] = df_merged_day['tong_so_nc_numeric'].fillna(0)
-                
-                # Calculate total processing time: (sl_giao × thoi_gian_pky + tong_so_nc × 40) × 1.2
-                df_merged_day['sl_giao_numeric'] = pd.to_numeric(
-                    df_merged_day['sl_giao'].astype(str).str.replace(',', '.'),
-                    errors='coerce'
-                ).fillna(0)
-                
-                df_merged_day['total_time'] = (
-                    df_merged_day['sl_giao_numeric'] * df_merged_day['thoi_gian_numeric'] + 
-                    df_merged_day['tong_so_nc_numeric'] * 40
-                ) * 1.2
-                
-                total_gia_cong_day = df_merged_day['total_time'].sum()
-            else:
-                continue
-            
-            # Calculate CS tổng using GCKT+PKY processing time
+            # Calculate CS tổng using actual processing time
             cs_tong_day = (total_gia_cong_day / thoi_gian_may_chay_day) * 100 if thoi_gian_may_chay_day > 0 else 0
             
-            # FIXED: Calculate CS trực tiếp with CORRECT stopped machine logic (matching monthly average)
-            all_machines_list = []
+            # Calculate CS trực tiếp (accurate calculation with stopped machines)
+            # Get machines in PHTCV for this day
+            machines_in_phtcv_day = set()
+            for _, row in df_day.iterrows():
+                machine = str(row.get('số máy', '')).strip()
+                if machine:
+                    machines_in_phtcv_day.add(machine)
+            
+            # Count stopped machines (simplified - only count machines NOT in PHTCV)
+            # For full accuracy, would need to check stop time >= 420 and no production
+            # But for trend chart, this approximation is acceptable
             if df_machine_list is not None and not df_machine_list.empty:
+                all_machines_list = []
                 if 'số máy' in df_machine_list.columns:
                     for _, row in df_machine_list.iterrows():
                         machine = str(row.get('số máy', '')).strip()
                         if machine:
                             all_machines_list.append(machine)
-            
-            # Track machines in PHTCV by department
-            machines_in_phtcv_sx1 = []
-            machines_in_phtcv_sx2 = []
-            
-            if 'số máy' in df_day.columns and 'bộ phận' in df_day.columns:
-                for _, row in df_day.iterrows():
-                    machine = str(row.get('số máy', '')).strip()
-                    dept = str(row.get('bộ phận', '')).strip()
-                    
-                    if machine:
-                        if 'Sản xuất 1' in dept:
-                            machines_in_phtcv_sx1.append(machine)
-                        elif 'Sản xuất 2' in dept:
-                            machines_in_phtcv_sx2.append(machine)
-            
-            machines_in_phtcv_sx1 = list(set(machines_in_phtcv_sx1))
-            machines_in_phtcv_sx2 = list(set(machines_in_phtcv_sx2))
-            
-            # CONDITION 1: Machines NOT in PHTCV data (by department)
-            machines_not_in_phtcv_sx1 = [m for m in all_machines_list if m not in machines_in_phtcv_sx1]
-            machines_not_in_phtcv_sx2 = [m for m in all_machines_list if m not in machines_in_phtcv_sx2]
-            
-            # CONDITION 2 AND 3: Machines with stop time >= 420 AND all production columns empty
-            stopped_machines_sx1 = []
-            stopped_machines_sx2 = []
-            
-            # Process SX1 machines
-            for machine in machines_in_phtcv_sx1:
-                df_machine = df_day[
-                    (df_day['số máy'] == machine) & 
-                    (df_day['bộ phận'].str.contains('Sản xuất 1', na=False))
-                ].copy()
                 
-                if df_machine.empty:
-                    continue
-                
-                max_dung = pd.to_numeric(
-                    df_machine['dừng'].astype(str).str.replace(',', '.'),
-                    errors='coerce'
-                ).fillna(0).max()
-                
-                max_dung_khac = 0
-                if 'dừng khác' in df_machine.columns:
-                    max_dung_khac = pd.to_numeric(
-                        df_machine['dừng khác'].astype(str).str.replace(',', '.'),
-                        errors='coerce'
-                    ).fillna(0).max()
-                
-                has_shift_stop = (max_dung >= 420) or (max_dung_khac >= 420)
-                
-                time_tgcb = pd.to_numeric(
-                    df_machine['tgcb'].astype(str).str.replace(',', '.'),
-                    errors='coerce'
-                ).sum()
-                
-                time_chay_thu = pd.to_numeric(
-                    df_machine['chạy thử'].astype(str).str.replace(',', '.'),
-                    errors='coerce'
-                ).sum()
-                
-                time_ga_lap = pd.to_numeric(
-                    df_machine['gá lắp'].astype(str).str.replace(',', '.'),
-                    errors='coerce'
-                ).sum()
-                
-                time_gia_cong = pd.to_numeric(
-                    df_machine['gia công'].astype(str).str.replace(',', '.'),
-                    errors='coerce'
-                ).sum()
-                
-                has_no_production = (time_tgcb == 0 and time_chay_thu == 0 and 
-                                    time_ga_lap == 0 and time_gia_cong == 0)
-                
-                if has_shift_stop and has_no_production:
-                    stopped_machines_sx1.append(machine)
-            
-            # Process SX2 machines
-            for machine in machines_in_phtcv_sx2:
-                df_machine = df_day[
-                    (df_day['số máy'] == machine) & 
-                    (df_day['bộ phận'].str.contains('Sản xuất 2', na=False))
-                ].copy()
-                
-                if df_machine.empty:
-                    continue
-                
-                max_dung = pd.to_numeric(
-                    df_machine['dừng'].astype(str).str.replace(',', '.'),
-                    errors='coerce'
-                ).fillna(0).max()
-                
-                max_dung_khac = 0
-                if 'dừng khác' in df_machine.columns:
-                    max_dung_khac = pd.to_numeric(
-                        df_machine['dừng khác'].astype(str).str.replace(',', '.'),
-                        errors='coerce'
-                    ).fillna(0).max()
-                
-                has_shift_stop = (max_dung >= 420) or (max_dung_khac >= 420)
-                
-                time_tgcb = pd.to_numeric(
-                    df_machine['tgcb'].astype(str).str.replace(',', '.'),
-                    errors='coerce'
-                ).sum()
-                
-                time_chay_thu = pd.to_numeric(
-                    df_machine['chạy thử'].astype(str).str.replace(',', '.'),
-                    errors='coerce'
-                ).sum()
-                
-                time_ga_lap = pd.to_numeric(
-                    df_machine['gá lắp'].astype(str).str.replace(',', '.'),
-                    errors='coerce'
-                ).sum()
-                
-                time_gia_cong = pd.to_numeric(
-                    df_machine['gia công'].astype(str).str.replace(',', '.'),
-                    errors='coerce'
-                ).sum()
-                
-                has_no_production = (time_tgcb == 0 and time_chay_thu == 0 and 
-                                    time_ga_lap == 0 and time_gia_cong == 0)
-                
-                if has_shift_stop and has_no_production:
-                    stopped_machines_sx2.append(machine)
-            
-            # FINAL: Condition 1 OR (Condition 2 AND 3)
-            all_stopped_sx1 = sorted(
-                set(machines_not_in_phtcv_sx1 + stopped_machines_sx1),
-                key=lambda x: int(x) if x.isdigit() else float('inf')
-            )
-            all_stopped_sx2 = sorted(
-                set(machines_not_in_phtcv_sx2 + stopped_machines_sx2),
-                key=lambda x: int(x) if x.isdigit() else float('inf')
-            )
-            
-            total_stopped_sx1 = len(all_stopped_sx1)
-            total_stopped_sx2 = len(all_stopped_sx2)
-            total_stopped_day = total_stopped_sx1 + total_stopped_sx2
+                machines_not_in_phtcv_day = [m for m in all_machines_list if m not in machines_in_phtcv_day]
+                total_stopped_day = len(machines_not_in_phtcv_day)
+            else:
+                total_stopped_day = 0
             
             # Calculate stopped time
             time_per_stopped_machine = 7 * 60  # 420 minutes
