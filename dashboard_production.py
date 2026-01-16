@@ -1732,18 +1732,42 @@ def main():
                 A_day = 100 - B_day
                 thoi_gian_may_chay_day = (A_day * 14 * 60) + (B_day * 20 * 60)
             
-            # Calculate actual processing time from PHTCV for this day
-            total_gia_cong_day = 0
-            for _, row in df_day.iterrows():
-                sl_thuc_te = pd.to_numeric(str(row.get('sl thực tế', '1')).replace(',', '.'), errors='coerce')
-                if pd.isna(sl_thuc_te) or sl_thuc_te == 0:
-                    sl_thuc_te = 1
-                
-                gia_cong_raw = pd.to_numeric(str(row.get('gia công', '0')).replace(',', '.'), errors='coerce')
-                gia_cong_raw = 0 if pd.isna(gia_cong_raw) else gia_cong_raw
-                total_gia_cong_day += gia_cong_raw * sl_thuc_te
+            # FIXED: Calculate tong_thoi_gian_gia_cong from GCKT_GPKT + PKY (matching main logic)
+            # Filter GCKT by this date
+            df_gckt_day = df_filtered[df_filtered['ngay_giao_parsed'].dt.date == single_date.date()].copy()
             
-            # Calculate CS tổng using actual processing time
+            if len(df_gckt_day) == 0:
+                continue
+            
+            # Calculate tong_thoi_gian_gia_cong from GCKT + PKY
+            if 'ten_chi_tiet' in df_gckt_day.columns and 'ten_chi_tiet' in df_pky.columns and 'thoi_gian_pky' in df_pky.columns:
+                # Merge GCKT with PKY on ten_chi_tiet
+                df_merged_day = df_gckt_day.merge(
+                    df_pky[['ten_chi_tiet', 'thoi_gian_numeric', 'tong_so_nc_numeric']],
+                    on='ten_chi_tiet',
+                    how='left'
+                )
+                
+                # Fill NaN values with 0
+                df_merged_day['thoi_gian_numeric'] = df_merged_day['thoi_gian_numeric'].fillna(0)
+                df_merged_day['tong_so_nc_numeric'] = df_merged_day['tong_so_nc_numeric'].fillna(0)
+                
+                # Calculate total processing time: (sl_giao × thoi_gian_pky + tong_so_nc × 40) × 1.2
+                df_merged_day['sl_giao_numeric'] = pd.to_numeric(
+                    df_merged_day['sl_giao'].astype(str).str.replace(',', '.'),
+                    errors='coerce'
+                ).fillna(0)
+                
+                df_merged_day['total_time'] = (
+                    df_merged_day['sl_giao_numeric'] * df_merged_day['thoi_gian_numeric'] + 
+                    df_merged_day['tong_so_nc_numeric'] * 40
+                ) * 1.2
+                
+                total_gia_cong_day = df_merged_day['total_time'].sum()
+            else:
+                continue
+            
+            # Calculate CS tổng using GCKT+PKY processing time
             cs_tong_day = (total_gia_cong_day / thoi_gian_may_chay_day) * 100 if thoi_gian_may_chay_day > 0 else 0
             
             # Calculate CS trực tiếp (accurate calculation with stopped machines)
