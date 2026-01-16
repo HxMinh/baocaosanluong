@@ -1416,6 +1416,9 @@ def main():
                     st.markdown("**Sản xuất 1:**")
                     st.write(f"• Máy chạy 12h: **{len(machines_12h_sx1)}** máy")
                     st.write(f"• Máy chạy 8h: **{len(machines_8h_sx1)}** máy")
+                    if machines_8h_sx1:
+                        machines_8h_sx1_sorted = sorted(machines_8h_sx1, key=lambda x: int(x) if x.isdigit() else float('inf'))
+                        st.write(f"  _{', '.join(machines_8h_sx1_sorted)}_")
                     st.write(f"• Máy dừng: **{len(machines_stopped_sx1)}** máy")
                     st.write(f"• Tổng: **{len(machines_12h_sx1) + len(machines_8h_sx1) + len(machines_stopped_sx1)}** máy")
                 
@@ -1423,6 +1426,9 @@ def main():
                     st.markdown("**Sản xuất 2:**")
                     st.write(f"• Máy chạy 12h: **{len(machines_12h_sx2)}** máy")
                     st.write(f"• Máy chạy 8h: **{len(machines_8h_sx2)}** máy")
+                    if machines_8h_sx2:
+                        machines_8h_sx2_sorted = sorted(machines_8h_sx2, key=lambda x: int(x) if x.isdigit() else float('inf'))
+                        st.write(f"  _{', '.join(machines_8h_sx2_sorted)}_")
                     st.write(f"• Máy dừng: **{len(machines_stopped_sx2)}** máy")
                     st.write(f"• Tổng: **{len(machines_12h_sx2) + len(machines_8h_sx2) + len(machines_stopped_sx2)}** máy")
         
