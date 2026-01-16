@@ -2055,10 +2055,14 @@ def main():
             # Calculate CS trực tiếp
             cs_truc_tiep_day = (total_gia_cong_day / thoi_gian_truc_tiep_day) * 100 if thoi_gian_truc_tiep_day > 0 else 0
             
+            # Calculate production volume for this day
+            san_luong_day = df_gckt_day['sl_giao_numeric'].sum() if 'sl_giao_numeric' in df_gckt_day.columns else 0
+            
             trend_data.append({
                 'date': single_date,
                 'CS tổng': cs_tong_day,
-                'CS trực tiếp': cs_truc_tiep_day
+                'CS trực tiếp': cs_truc_tiep_day,
+                'Sản lượng': san_luong_day
             })
         
         st.success(f"✅ Đã xử lý {days_with_data} ngày có dữ liệu, tạo được {len(trend_data)} điểm dữ liệu")
@@ -2090,10 +2094,12 @@ def main():
             
             # Create line chart using plotly
             import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
             
-            fig = go.Figure()
+            # Create figure with secondary y-axis
+            fig = make_subplots(specs=[[{"secondary_y": True}]])
             
-            # Add CS tổng line
+            # Add CS tổng line (primary y-axis)
             fig.add_trace(go.Scatter(
                 x=df_trend['date_str'],
                 y=df_trend['CS tổng'],
@@ -2101,9 +2107,9 @@ def main():
                 name='CS tổng (%)',
                 line=dict(color='#2ecc71', width=2),
                 marker=dict(size=6)
-            ))
+            ), secondary_y=False)
             
-            # Add CS trực tiếp line
+            # Add CS trực tiếp line (primary y-axis)
             fig.add_trace(go.Scatter(
                 x=df_trend['date_str'],
                 y=df_trend['CS trực tiếp'],
@@ -2111,14 +2117,22 @@ def main():
                 name='CS trực tiếp (%)',
                 line=dict(color='#9b59b6', width=2),
                 marker=dict(size=6)
-            ))
+            ), secondary_y=False)
+            
+            # Add Sản lượng line (secondary y-axis)
+            fig.add_trace(go.Scatter(
+                x=df_trend['date_str'],
+                y=df_trend['Sản lượng'],
+                mode='lines+markers',
+                name='Sản lượng',
+                line=dict(color='#e74c3c', width=2, dash='dot'),
+                marker=dict(size=6, symbol='diamond')
+            ), secondary_y=True)
             
             # Update layout
             fig.update_layout(
                 title='Xu hướng Công suất theo thời gian',
                 xaxis_title='Ngày',
-                yaxis_title='Công suất (%)',
-                yaxis=dict(range=[0, max(df_trend['CS tổng'].max(), df_trend['CS trực tiếp'].max(), 100) + 20]),
                 hovermode='x unified',
                 legend=dict(
                     orientation="h",
@@ -2130,7 +2144,11 @@ def main():
                 height=400
             )
             
-            st.plotly_chart(fig, width="stretch")
+            # Set y-axes titles
+            fig.update_yaxes(title_text="Công suất (%)", secondary_y=False, range=[0, max(df_trend['CS tổng'].max(), df_trend['CS trực tiếp'].max(), 100) + 20])
+            fig.update_yaxes(title_text="Sản lượng", secondary_y=True)
+            
+            st.plotly_chart(fig, use_container_width=True)
             
             # Excel Export Button for Capacity Data
             st.markdown("---")
@@ -2142,11 +2160,12 @@ def main():
                     export_capacity_df = export_capacity_df.rename(columns={
                         'date_str': 'Ngày',
                         'CS tổng': 'CS tổng (%)',
-                        'CS trực tiếp': 'CS trực tiếp (%)'
+                        'CS trực tiếp': 'CS trực tiếp (%)',
+                        'Sản lượng': 'Sản lượng'
                     })
                     
                     # Select only needed columns
-                    export_capacity_df = export_capacity_df[['Ngày', 'CS tổng (%)', 'CS trực tiếp (%)']]
+                    export_capacity_df = export_capacity_df[['Ngày', 'CS tổng (%)', 'CS trực tiếp (%)', 'Sản lượng']]
                     
                     # Convert to Excel
                     from io import BytesIO
