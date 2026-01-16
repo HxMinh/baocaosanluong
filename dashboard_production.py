@@ -1308,9 +1308,15 @@ def main():
             st.metric(label="CS trực tiếp", value=f"{cs_truc_tiep:.1f}%")
         
         # Machine details display (only for single-day selection)
-        if selected_date != 'Tất cả' and 'total_stopped_sx1' in locals() and 'total_stopped_sx2' in locals():
+        if selected_date != 'Tất cả' and 'df_phtcv_filtered' in locals() and df_phtcv_filtered is not None:
             with st.expander("🔧 Chi tiết máy móc", expanded=False):
-                # Calculate machines running 12h and 8h for each department
+                # Calculate machine times AND stop times for each department
+                machine_times_sx1 = {}
+                machine_stop_times_sx1 = {}
+                machine_times_sx2 = {}
+                machine_stop_times_sx2 = {}
+                SHIFT_TIMES = [420, 630, 660]
+                
                 # Get all machines from machine_list
                 all_machines_list = []
                 if df_machine_list is not None and not df_machine_list.empty:
@@ -1320,17 +1326,88 @@ def main():
                             if machine:
                                 all_machines_list.append(machine)
                 
-                # Get machines running (not stopped) in each department
-                machines_running_sx1 = [m for m in all_machines_list if m not in all_stopped_sx1]
-                machines_running_sx2 = [m for m in all_machines_list if m not in all_stopped_sx2]
+                # Calculate times for each machine
+                for _, row in df_phtcv_filtered.iterrows():
+                    machine_num = str(row.get('số máy', '')).strip()
+                    dept = str(row.get('bộ phận', '')).strip()
+                    
+                    if not machine_num:
+                        continue
+                    
+                    sl_thuc_te = pd.to_numeric(str(row.get('sl thực tế', '1')).replace(',', '.'), errors='coerce')
+                    if pd.isna(sl_thuc_te) or sl_thuc_te == 0:
+                        sl_thuc_te = 1
+                    
+                    time_tgcb = pd.to_numeric(str(row.get('tgcb', '0')).replace(',', '.'), errors='coerce')
+                    time_tgcb = 0 if pd.isna(time_tgcb) else time_tgcb
+                    
+                    time_chay_thu = pd.to_numeric(str(row.get('chạy thử', '0')).replace(',', '.'), errors='coerce')
+                    time_chay_thu = 0 if pd.isna(time_chay_thu) else time_chay_thu
+                    
+                    ga_lap_raw = pd.to_numeric(str(row.get('gá lắp', '0')).replace(',', '.'), errors='coerce')
+                    ga_lap_raw = 0 if pd.isna(ga_lap_raw) else ga_lap_raw
+                    time_ga_lap = ga_lap_raw * sl_thuc_te
+                    
+                    gia_cong_raw = pd.to_numeric(str(row.get('gia công', '0')).replace(',', '.'), errors='coerce')
+                    gia_cong_raw = 0 if pd.isna(gia_cong_raw) else gia_cong_raw
+                    time_gia_cong = gia_cong_raw * sl_thuc_te
+                    
+                    time_dung_raw = pd.to_numeric(str(row.get('dừng', '0')).replace(',', '.'), errors='coerce')
+                    time_dung_raw = 0 if pd.isna(time_dung_raw) else time_dung_raw
+                    time_dung = 0 if time_dung_raw in SHIFT_TIMES else time_dung_raw
+                    
+                    time_dung_khac_raw = pd.to_numeric(str(row.get('dừng khác', '0')).replace(',', '.'), errors='coerce')
+                    time_dung_khac_raw = 0 if pd.isna(time_dung_khac_raw) else time_dung_khac_raw
+                    time_dung_khac = 0 if time_dung_khac_raw in SHIFT_TIMES else time_dung_khac_raw
+                    
+                    time_sua = pd.to_numeric(str(row.get('sửa', '0')).replace(',', '.'), errors='coerce')
+                    time_sua = 0 if pd.isna(time_sua) else time_sua
+                    
+                    row_total_time = time_gia_cong + time_ga_lap + time_tgcb + time_chay_thu + time_dung + time_dung_khac + time_sua
+                    row_stop_time = time_dung_raw + time_dung_khac_raw
+                    
+                    if 'Sản xuất 1' in dept:
+                        if machine_num not in machine_times_sx1:
+                            machine_times_sx1[machine_num] = 0
+                            machine_stop_times_sx1[machine_num] = 0
+                        machine_times_sx1[machine_num] += row_total_time
+                        machine_stop_times_sx1[machine_num] = max(machine_stop_times_sx1[machine_num], row_stop_time)
+                    elif 'Sản xuất 2' in dept:
+                        if machine_num not in machine_times_sx2:
+                            machine_times_sx2[machine_num] = 0
+                            machine_stop_times_sx2[machine_num] = 0
+                        machine_times_sx2[machine_num] += row_total_time
+                        machine_stop_times_sx2[machine_num] = max(machine_stop_times_sx2[machine_num], row_stop_time)
                 
-                # Count 12h machines in each department
-                machines_12h_sx1 = [m for m in machines_12h if m in machines_running_sx1]
-                machines_12h_sx2 = [m for m in machines_12h if m in machines_running_sx2]
+                # Categorize machines for SX1
+                machines_12h_sx1 = []
+                machines_8h_sx1 = []
+                machines_stopped_sx1 = []
                 
-                # Count 8h machines in each department
-                machines_8h_sx1 = [m for m in machines_running_sx1 if m not in machines_12h]
-                machines_8h_sx2 = [m for m in machines_running_sx2 if m not in machines_12h]
+                for machine in all_machines_list:
+                    if machine not in machine_times_sx1:
+                        machines_stopped_sx1.append(machine)
+                    elif machine_stop_times_sx1[machine] > 420:
+                        machines_stopped_sx1.append(machine)
+                    elif machine_times_sx1[machine] >= 620:
+                        machines_12h_sx1.append(machine)
+                    else:
+                        machines_8h_sx1.append(machine)
+                
+                # Categorize machines for SX2
+                machines_12h_sx2 = []
+                machines_8h_sx2 = []
+                machines_stopped_sx2 = []
+                
+                for machine in all_machines_list:
+                    if machine not in machine_times_sx2:
+                        machines_stopped_sx2.append(machine)
+                    elif machine_stop_times_sx2[machine] > 420:
+                        machines_stopped_sx2.append(machine)
+                    elif machine_times_sx2[machine] >= 620:
+                        machines_12h_sx2.append(machine)
+                    else:
+                        machines_8h_sx2.append(machine)
                 
                 # Display in 2 columns
                 col_sx1, col_sx2 = st.columns(2)
@@ -1339,15 +1416,15 @@ def main():
                     st.markdown("**Sản xuất 1:**")
                     st.write(f"• Máy chạy 12h: **{len(machines_12h_sx1)}** máy")
                     st.write(f"• Máy chạy 8h: **{len(machines_8h_sx1)}** máy")
-                    st.write(f"• Máy dừng: **{total_stopped_sx1}** máy")
-                    st.write(f"• Tổng: **{len(machines_12h_sx1) + len(machines_8h_sx1) + total_stopped_sx1}** máy")
+                    st.write(f"• Máy dừng: **{len(machines_stopped_sx1)}** máy")
+                    st.write(f"• Tổng: **{len(machines_12h_sx1) + len(machines_8h_sx1) + len(machines_stopped_sx1)}** máy")
                 
                 with col_sx2:
                     st.markdown("**Sản xuất 2:**")
                     st.write(f"• Máy chạy 12h: **{len(machines_12h_sx2)}** máy")
                     st.write(f"• Máy chạy 8h: **{len(machines_8h_sx2)}** máy")
-                    st.write(f"• Máy dừng: **{total_stopped_sx2}** máy")
-                    st.write(f"• Tổng: **{len(machines_12h_sx2) + len(machines_8h_sx2) + total_stopped_sx2}** máy")
+                    st.write(f"• Máy dừng: **{len(machines_stopped_sx2)}** máy")
+                    st.write(f"• Tổng: **{len(machines_12h_sx2) + len(machines_8h_sx2) + len(machines_stopped_sx2)}** máy")
         
         # Hàng tồn tổng kế hoạch section
         st.markdown("#### Hàng tồn tổng kế hoạch")
