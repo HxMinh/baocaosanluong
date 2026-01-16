@@ -2356,10 +2356,20 @@ def main():
                             date_str
                         )
                         
+                        # Calculate QC production volume (sản lượng)
+                        san_luong_qc_day = 0
+                        if 'sll' in df_qc_day.columns:
+                            san_luong_qc_day = pd.to_numeric(
+                                df_qc_day['sll'].astype(str).str.replace(',', '.'),
+                                errors='coerce'
+                            ).fillna(0).sum()
+                            san_luong_qc_day = int(san_luong_qc_day)
+                        
                         qc_trend_data.append({
                             'date': single_date,
                             'CS tổng': qc_result['cs_tong'],
-                            'CS trực tiếp': qc_result['cs_truc_tiep']
+                            'CS trực tiếp': qc_result['cs_truc_tiep'],
+                            'Sản lượng': san_luong_qc_day
                         })
                     
                     st.success(f"✅ Đã xử lý {qc_days_with_data} ngày có dữ liệu QC, tạo được {len(qc_trend_data)} điểm dữ liệu")
@@ -2391,8 +2401,10 @@ def main():
                         
                         # Create line chart using plotly
                         import plotly.graph_objects as go
+                        from plotly.subplots import make_subplots
                         
-                        fig_qc = go.Figure()
+                        # Create figure with secondary y-axis
+                        fig_qc = make_subplots(specs=[[{"secondary_y": True}]])
                         
                         # Add CS tổng line
                         fig_qc.add_trace(go.Scatter(
@@ -2402,7 +2414,7 @@ def main():
                             name='CS tổng (%)',
                             line=dict(color='#3498db', width=2),
                             marker=dict(size=6)
-                        ))
+                        ), secondary_y=False)
                         
                         # Add CS trực tiếp line
                         fig_qc.add_trace(go.Scatter(
@@ -2412,15 +2424,24 @@ def main():
                             name='CS trực tiếp (%)',
                             line=dict(color='#e74c3c', width=2),
                             marker=dict(size=6)
-                        ))
+                        ), secondary_y=False)
+                        
+                        # Add Sản lượng (secondary y-axis) - Show values only (no line)
+                        fig_qc.add_trace(go.Scatter(
+                            x=df_qc_trend['date_str'],
+                            y=df_qc_trend['Sản lượng'],
+                            mode='markers+text',  # Only markers and text
+                            text=df_qc_trend['Sản lượng'].apply(lambda x: f"{int(x):,}"),
+                            textposition='top center',
+                            name='Sản lượng',
+                            marker=dict(size=8, symbol='diamond', color='#2ecc71')
+                        ), secondary_y=True)
                         
                         # Update layout
                         max_y = max(df_qc_trend['CS tổng'].max(), df_qc_trend['CS trực tiếp'].max(), 100)
                         fig_qc.update_layout(
                             title='Kiểm tra AMJ - Xu hướng Công suất theo thời gian',
                             xaxis_title='Ngày',
-                            yaxis_title='Công suất (%)',
-                            yaxis=dict(range=[0, max_y + 20]),
                             hovermode='x unified',
                             legend=dict(
                                 orientation="h",
@@ -2432,7 +2453,11 @@ def main():
                             height=400
                         )
                         
-                        st.plotly_chart(fig_qc, width="stretch")
+                        # Set y-axes titles
+                        fig_qc.update_yaxes(title_text="Công suất (%)", secondary_y=False, range=[0, max_y + 20])
+                        fig_qc.update_yaxes(title_text="Sản lượng", secondary_y=True)
+                        
+                        st.plotly_chart(fig_qc, use_container_width=True)
                         
                         # Excel Export Button for QC Capacity Data
                         st.markdown("---")
@@ -2444,11 +2469,12 @@ def main():
                                 export_qc_df = export_qc_df.rename(columns={
                                     'date_str': 'Ngày',
                                     'CS tổng': 'CS tổng (%)',
-                                    'CS trực tiếp': 'CS trực tiếp (%)'
+                                    'CS trực tiếp': 'CS trực tiếp (%)',
+                                    'Sản lượng': 'Sản lượng'
                                 })
                                 
                                 # Select only needed columns
-                                export_qc_df = export_qc_df[['Ngày', 'CS tổng (%)', 'CS trực tiếp (%)']]
+                                export_qc_df = export_qc_df[['Ngày', 'CS tổng (%)', 'CS trực tiếp (%)', 'Sản lượng']]
                                 
                                 # Convert to Excel
                                 from io import BytesIO
