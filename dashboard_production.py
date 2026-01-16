@@ -2056,7 +2056,14 @@ def main():
             cs_truc_tiep_day = (total_gia_cong_day / thoi_gian_truc_tiep_day) * 100 if thoi_gian_truc_tiep_day > 0 else 0
             
             # Calculate production volume for this day
-            san_luong_day = df_gckt_day['sl_giao_numeric'].sum() if 'sl_giao_numeric' in df_gckt_day.columns else 0
+            if 'sl_giao' in df_gckt_day.columns:
+                san_luong_day = pd.to_numeric(
+                    df_gckt_day['sl_giao'].astype(str).str.replace(',', '.'),
+                    errors='coerce'
+                ).fillna(0).sum()
+                san_luong_day = int(san_luong_day)
+            else:
+                san_luong_day = 0
             
             trend_data.append({
                 'date': single_date,
