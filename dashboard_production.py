@@ -608,9 +608,13 @@ def main():
                 else:
                     df_pky['tong_so_nc_numeric'] = 0
                 
+                # IMPORTANT: Remove duplicates in PKY to avoid duplicate rows after merge
+                # Keep first occurrence for each ten_chi_tiet
+                df_pky_unique = df_pky.drop_duplicates(subset=['ten_chi_tiet'], keep='first')
+                
                 # Merge GCKT with PKY on ten_chi_tiet
                 df_merged = df_filtered.merge(
-                    df_pky[['ten_chi_tiet', 'thoi_gian_numeric', 'tong_so_nc_numeric']],
+                    df_pky_unique[['ten_chi_tiet', 'thoi_gian_numeric', 'tong_so_nc_numeric']],
                     on='ten_chi_tiet',
                     how='left'
                 )
@@ -730,17 +734,26 @@ def main():
                 # Count total unique machines in PHTCV data
                 total_machines_in_phtcv = len(set(m for (m, d) in machine_dept_times.keys()))
                 
-                # Calculate 100-machine time based on B
+                # Get total machines from master list (df_machine_list)
+                # Count only non-empty machine numbers
+                total_machines_master = 100  # Default fallback
+                if df_machine_list is not None and not df_machine_list.empty:
+                    if 'số máy' in df_machine_list.columns:
+                        machine_numbers = df_machine_list['số máy'].tolist()
+                        machine_numbers_clean = [m for m in machine_numbers if m and str(m).strip()]
+                        total_machines_master = len(machine_numbers_clean)
+                
+                # Calculate total machine time based on B
                 # New logic:
                 #   - If >= 95% of machines in PHTCV have >= 620 minutes: 
-                #     All 100 machines run 12h → 100 × 20h × 60 = 120,000 minutes
-                #   - Otherwise: (100-B) machines run 8h, B machines run 12h → (100-B) × 14h × 60 + B × 20h × 60
+                #     All machines run 12h → total_machines_master × 20h × 60
+                #   - Otherwise: (total_machines_master-B) machines run 8h, B machines run 12h
                 if total_machines_in_phtcv > 0 and (B / total_machines_in_phtcv) >= 0.95:
-                    # >= 95% of machines in PHTCV have >= 620, assume all 100 machines run 12h
-                    thoi_gian_may_chay = 100 * 20 * 60  # 120,000 minutes
+                    # >= 95% of machines in PHTCV have >= 620, assume all machines run 12h
+                    thoi_gian_may_chay = total_machines_master * 20 * 60
                 else:
                     # Mixed: some machines run 8h, some run 12h
-                    A = 100 - B  # Machines running 8h shift
+                    A = total_machines_master - B  # Machines running 8h shift
                     thoi_gian_may_chay = (A * 14 * 60) + (B * 20 * 60)
                 
                 # Calculate CS tổng
@@ -868,11 +881,19 @@ def main():
                         B_day = len(machines_12h_day)
                         total_machines_day = len(set(m for (m, d) in machine_dept_times_day.keys()))
                         
-                        # Calculate 100-machine time
+                        # Get total machines from master list
+                        total_machines_master_day = 100  # Default fallback
+                        if df_machine_list is not None and not df_machine_list.empty:
+                            if 'số máy' in df_machine_list.columns:
+                                machine_numbers = df_machine_list['số máy'].tolist()
+                                machine_numbers_clean = [m for m in machine_numbers if m and str(m).strip()]
+                                total_machines_master_day = len(machine_numbers_clean)
+                        
+                        # Calculate total machine time
                         if total_machines_day > 0 and (B_day / total_machines_day) >= 0.95:
-                            thoi_gian_may_chay_day = 100 * 20 * 60
+                            thoi_gian_may_chay_day = total_machines_master_day * 20 * 60
                         else:
-                            A_day = 100 - B_day
+                            A_day = total_machines_master_day - B_day
                             thoi_gian_may_chay_day = (A_day * 14 * 60) + (B_day * 20 * 60)
                         
                         # CS tổng for this day (using CORRECT tong_thoi_gian_gia_cong_day)
@@ -1851,11 +1872,19 @@ def main():
             B_day = len(machines_12h_day)
             total_machines_day = len(set(m for (m, d) in machine_dept_times_day.keys()))
             
-            # Calculate 100-machine time
+            # Get total machines from master list
+            total_machines_master_trend = 100  # Default fallback
+            if df_machine_list is not None and not df_machine_list.empty:
+                if 'số máy' in df_machine_list.columns:
+                    machine_numbers = df_machine_list['số máy'].tolist()
+                    machine_numbers_clean = [m for m in machine_numbers if m and str(m).strip()]
+                    total_machines_master_trend = len(machine_numbers_clean)
+            
+            # Calculate total machine time
             if total_machines_day > 0 and (B_day / total_machines_day) >= 0.95:
-                thoi_gian_may_chay_day = 100 * 20 * 60
+                thoi_gian_may_chay_day = total_machines_master_trend * 20 * 60
             else:
-                A_day = 100 - B_day
+                A_day = total_machines_master_trend - B_day
                 thoi_gian_may_chay_day = (A_day * 14 * 60) + (B_day * 20 * 60)
             
             # FIXED: Calculate tong_thoi_gian_gia_cong from GCKT_GPKT + PKY (matching main logic)
@@ -2236,24 +2265,24 @@ def main():
             
             if 'B' in locals() and 'thoi_gian_may_chay' in locals():
                 st.markdown("---")
-                st.subheader("2️⃣ Số máy và thời gian 100 máy")
+                st.subheader(f"2️⃣ Số máy và thời gian tổng ({total_machines_master if 'total_machines_master' in locals() else 100} máy)")
                 
                 # Show machine counts
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
                     st.metric("🔧 B (Máy >= 620p)", f"{B} máy", help="Số máy chạy ca 12h (unique từ tất cả bộ phận)")
                 with col2:
-                    A = 100 - B
-                    st.metric("⚙️ A (Máy 8h)", f"{A} máy", help="100 - B")
+                    A = total_machines_master - B if 'total_machines_master' in locals() else 100 - B
+                    st.metric("⚙️ A (Máy 8h)", f"{A} máy", help=f"{total_machines_master if 'total_machines_master' in locals() else 100} - B")
                 with col3:
                     if 'total_machines_in_phtcv' in locals() and total_machines_in_phtcv > 0:
                         ratio = (B / total_machines_in_phtcv) * 100
                         st.metric("📊 Tỷ lệ B/Tổng máy PHTCV", f"{ratio:.0f}%", help=f"{B}/{total_machines_in_phtcv}")
                     else:
-                        st.metric("📊 Tỷ lệ B/100", "N/A")
+                        st.metric("📊 Tỷ lệ B/Tổng máy", "N/A")
                 with col4:
-                    if 'total_machines_in_phtcv' in locals():
-                        st.metric("🏭 Máy trong PHTCV", f"{total_machines_in_phtcv} máy", help="Tổng máy unique trong dữ liệu")
+                    if 'total_machines_master' in locals():
+                        st.metric("🏭 Tổng máy (Master)", f"{total_machines_master} máy", help="Từ danh sách master list")
                     else:
                         st.metric("🏭 Tổng máy", "100 máy")
                 
@@ -2288,16 +2317,17 @@ def main():
                 
                 
                 # Show formula used
-                st.markdown("#### Công thức thời gian 100 máy:")
+                st.markdown("#### Công thức thời gian tổng máy:")
+                total_m = total_machines_master if 'total_machines_master' in locals() else 100
                 if 'total_machines_in_phtcv' in locals() and total_machines_in_phtcv > 0 and (B / total_machines_in_phtcv) >= 0.95:
                     ratio_pct = (B / total_machines_in_phtcv) * 100
-                    st.success(f"✅ **>= 95% máy trong PHTCV đều >= 620p** ({ratio_pct:.1f}%) → Dùng công thức: **100 × 20h × 60 = 120,000 phút**")
-                    st.code(f"Thời gian 100 máy = 100 × 20 × 60 = {thoi_gian_may_chay:,} phút", language="python")
+                    st.success(f"✅ **>= 95% máy trong PHTCV đều >= 620p** ({ratio_pct:.1f}%) → Dùng công thức: **{total_m} × 20h × 60**")
+                    st.code(f"Thời gian tổng máy = {total_m} × 20 × 60 = {thoi_gian_may_chay:,} phút", language="python")
                 else:
-                    st.info(f"✅ **< 95% máy >= 620p** → Dùng công thức: **(100 - B) × 14h × 60 + B × 20h × 60**")
+                    st.info(f"✅ **< 95% máy >= 620p** → Dùng công thức: **({total_m} - B) × 14h × 60 + B × 20h × 60**")
                     time_8h = A * 14 * 60
                     time_12h = B * 20 * 60
-                    st.code(f"""Thời gian 100 máy = ({A} × 14 × 60) + ({B} × 20 × 60)
+                    st.code(f"""Thời gian tổng máy = ({A} × 14 × 60) + ({B} × 20 × 60)
                  = {time_8h:,} + {time_12h:,}
                  = {thoi_gian_may_chay:,} phút""", language="python")
                 
@@ -2305,11 +2335,11 @@ def main():
                 st.markdown("---")
                 st.markdown("#### Tính CS tổng:")
                 if thoi_gian_may_chay > 0:
-                    st.code(f"""CS tổng = (Tổng thời gian gia công / Thời gian 100 máy) × 100%
+                    st.code(f"""CS tổng = (Tổng thời gian gia công / Thời gian tổng máy) × 100%
          = ({tong_thoi_gian_gia_cong:,.0f} / {thoi_gian_may_chay:,}) × 100%
          = {cs_tong:.2f}%""", language="python")
                 else:
-                    st.warning("⚠️ Thời gian 100 máy = 0, không thể tính CS tổng")
+                    st.warning("⚠️ Thời gian tổng máy = 0, không thể tính CS tổng")
         
         # QC (Kiểm tra AMJ) Capacity Trend Chart
         st.markdown("---")
