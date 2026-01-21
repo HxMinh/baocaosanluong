@@ -1407,9 +1407,34 @@ def main():
                 
                 for machine in all_machines_list:
                     if machine not in machine_times_sx1:
+                        # Condition 1: No data
                         machines_stopped_sx1.append(machine)
-                    elif machine_stop_times_sx1[machine] > 420:
-                        machines_stopped_sx1.append(machine)
+                    elif machine_stop_times_sx1[machine] >= 420:
+                        # Check if machine has ANY production activity
+                        # Filter data for this specific machine in SX1
+                        df_machine_sx1 = df_phtcv_filtered[
+                            (df_phtcv_filtered['số máy'] == machine) & 
+                            (df_phtcv_filtered['bộ phận'].str.contains('Sản xuất 1', na=False))
+                        ].copy()
+                        
+                        has_production = False
+                        if not df_machine_sx1.empty:
+                            # Check all production time columns
+                            time_tgcb = pd.to_numeric(df_machine_sx1['tgcb'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).sum()
+                            time_chay_thu = pd.to_numeric(df_machine_sx1['chạy thử'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).sum()
+                            time_ga_lap = pd.to_numeric(df_machine_sx1['gá lắp'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).sum()
+                            time_gia_cong = pd.to_numeric(df_machine_sx1['gia công'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).sum()
+                            
+                            has_production = (time_tgcb > 0 or time_chay_thu > 0 or 
+                                             time_ga_lap > 0 or time_gia_cong > 0)
+                        
+                        if not has_production:
+                            # Condition 2 AND 3: stop >= 420 AND no production
+                            machines_stopped_sx1.append(machine)
+                        elif machine_times_sx1[machine] >= 620:
+                            machines_12h_sx1.append(machine)
+                        else:
+                            machines_8h_sx1.append(machine)
                     elif machine_times_sx1[machine] >= 620:
                         machines_12h_sx1.append(machine)
                     else:
@@ -1422,9 +1447,34 @@ def main():
                 
                 for machine in all_machines_list:
                     if machine not in machine_times_sx2:
+                        # Condition 1: No data
                         machines_stopped_sx2.append(machine)
-                    elif machine_stop_times_sx2[machine] > 420:
-                        machines_stopped_sx2.append(machine)
+                    elif machine_stop_times_sx2[machine] >= 420:
+                        # Check if machine has ANY production activity
+                        # Filter data for this specific machine in SX2
+                        df_machine_sx2 = df_phtcv_filtered[
+                            (df_phtcv_filtered['số máy'] == machine) & 
+                            (df_phtcv_filtered['bộ phận'].str.contains('Sản xuất 2', na=False))
+                        ].copy()
+                        
+                        has_production = False
+                        if not df_machine_sx2.empty:
+                            # Check all production time columns
+                            time_tgcb = pd.to_numeric(df_machine_sx2['tgcb'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).sum()
+                            time_chay_thu = pd.to_numeric(df_machine_sx2['chạy thử'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).sum()
+                            time_ga_lap = pd.to_numeric(df_machine_sx2['gá lắp'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).sum()
+                            time_gia_cong = pd.to_numeric(df_machine_sx2['gia công'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).sum()
+                            
+                            has_production = (time_tgcb > 0 or time_chay_thu > 0 or 
+                                             time_ga_lap > 0 or time_gia_cong > 0)
+                        
+                        if not has_production:
+                            # Condition 2 AND 3: stop >= 420 AND no production
+                            machines_stopped_sx2.append(machine)
+                        elif machine_times_sx2[machine] >= 620:
+                            machines_12h_sx2.append(machine)
+                        else:
+                            machines_8h_sx2.append(machine)
                     elif machine_times_sx2[machine] >= 620:
                         machines_12h_sx2.append(machine)
                     else:
