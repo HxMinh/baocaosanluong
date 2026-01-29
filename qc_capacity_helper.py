@@ -29,9 +29,13 @@ def calculate_quality_control_capacity(
     # Default values
     result = {
         'cs_tong': 0,
-        'A': 0,
-        'B': 0,
+        'cs_truc_tiep': 0,
+        'A_tong': 0,
+        'A_truc_tiep': 0,
+        'B_tong': 0,
+        'practical_employees_count': 0,
         'thoi_gian_100_nguoi': 0,
+        'thoi_gian_nguoi_truc_tiep': 0,
         'total_completion_time': 0
     }
     
